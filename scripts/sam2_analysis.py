@@ -3,6 +3,11 @@ import cellpose.io
 import os
 import imageio
 import time
+import importlib.resources
+from PIL import Image
+
+from sam2.build_sam import build_sam2_video_predictor
+from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -10,56 +15,92 @@ import sys
 sys.path.append(os.path.join(script_dir, '..'))
 from cell_seg_comparison import *
 
+sam2_checkpoint = os.path.join(script_dir, '..', 'checkpoints', 'sam2.1_hiera_large.pt')
+with importlib.resources.path('sam2.configs', 'sam2.1_hiera_l.yaml') as cfg_path:
+    sam2_model_cfg = str(cfg_path)
+
+torch_device = get_torch_device()
+
+def down_sample_video_to_segmented_frames():
+    """
+    Downsample the video to a sequence of frames for segmentation.
+    """
+    output_dir = os.path.join(script_dir, '..', 'output', 'tiffstack_reduced')
+    os.makedirs(output_dir, exist_ok=True)
+    
+    avi_path = os.path.join(script_dir,'..','data','movie1_AB060922a_Job3_All_25_fps.avi')
+    reader = imageio.get_reader(avi_path)
+    
+    # downsample by taking every 4th frame
+    frames = [frame for i, frame in enumerate(reader) if i % 4 == 0]
+    
+    for idx, frame in enumerate(frames):
+        imageio.imwrite(os.path.join(output_dir, f"frame_{idx:04d}.tif"), frame)
+    
+    print(f"Downsampled video to {len(frames)} frames and saved to {output_dir}")
+
 def create_sam2_masks_unsupervised():
     number_frames = 2
     output_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks')
     os.makedirs(output_dir, exist_ok=True)
  
     t0 = time.time()
-    avi_path = os.path.join(script_dir,'..','data','movie1_AB060922a_Job3_All_25_fps.avi')
-    tifffolder = os.path.join(script_dir,'..','data','tiffstack')
+    predictor = build_sam2_video_predictor(sam2_model_cfg, sam2_checkpoint, device=torch_device)
+    mask_generator = SAM2AutomaticMaskGenerator(predictor)
+    print(f"Loaded SAM2 model from {sam2_checkpoint} with config {sam2_model_cfg}")
+    print(f"Time to load SAM2 model: {time.time() - t0:.2f} seconds")
+
+    t1 = time.time()
+    tifffolder = os.path.join(script_dir,'..','data','tiffstack_reduced')
     tiff_files = sorted([f for f in os.listdir(tifffolder) if f.lower().endswith('.tif') or f.lower().endswith('.tiff')])
-    # print(tiff_files)
-    images = [cellpose.io.imread(os.path.join(tifffolder, f)) for f in tiff_files]
-    # images = sam2.io.imread(avi_path)
-    # reader = imageio.get_reader(avi_path)
-    # images = [sam2.io.imread((np.asarray(frame))) for frame in reader]
-    images = images[239:1784:4]
-    # images = images[240:260:4]
-    images = images[:number_frames]
-    print(f"Loaded {len(images)} frames from {avi_path}")
-    print(f"Time to load images: {time.time() - t0:.2f} seconds")
-    print("Processing images with Cellpose...")
+    first_tiff_file = tiff_files[0]
+    first_image = Image.open(os.path.join(tifffolder, first_tiff_file))
+    inference_state = predictor.init_state(video_path=tifffolder)
+    first_masks = mask_generator.generate(first_image)
+
+    # for each returned mask, provide it to the video predictor as a starting point
+    for cell_id, mask in enumerate(first_masks):
+        _, out_obj_ids, out_mask_logits = predictor.add_new_mask(
+            inference_state = inference_state,
+            frame_idx = 0,
+            obj_id = cell_id,
+            mask = mask['segmentation'])
+    print(f"Time to load first image and generate masks: {time.time() - t1:.2f} seconds")
 
     t2 = time.time()
-    # apply sam2 to each image in the tiff sequence
-    sam2_model = sam2.models.CellposeModel(gpu=True)  # set gpu=False if you don't have a GPU
-    print("Cellpose model loaded.")
-    sam2_masks = []
-    for index, image in enumerate(images):
-        # img should be a numpy array (H, W) or (H, W, C)
-        mask, _, _ = sam2_model.eval(image)
-        sam2_masks.append(mask)
-        sam2.io.imsave(os.path.join(output_dir, f"mask_{index:04d}.png"), mask)
-    
-    print(f"Segmented {len(sam2_masks)} frames.")
+    # run propagation throughout the video and collect the results in a dict
+    # segmented_frames = []  # video_segments contains the per-frame segmentation results
+    current_frame = np.zeros_like(first_image)
+    for out_frame_idx, out_obj_ids, out_mask_logits in predictor.propagate_in_video(inference_state):
+        current_frame[:] = 0  # reset the current frame 
+        for out_obj_id, out_mask_logits in zip(out_obj_ids, out_mask_logits):
+            # out_mask_logits is a tensor of shape (H, W) with logits for the mask
+            # convert logits to binary mask
+            current_frame[out_mask_logits > 0.0] = out_obj_id
+        # segmented_frames.append(current_frame)
+        this_PIL_image = Image.fromarray(current_frame)
+        # save the masks as PNG files
+        this_PIL_image.save(os.path.join(output_dir, f"mask_{out_frame_idx:04d}.png"))
+        # stop after processing the first `number_frames` frames
+        if out_frame_idx >= number_frames - 1:
+            break
+
+    print(f"Segmented {number_frames} frames.")
     print(f"Time to segment images: {time.time() - t2:.2f} seconds")
 
-def quantify_sam2_performance():
+def quantify_sam2_performance_unsupervised():
     t0 = time.time()
     # match identified and ground truth masks
     sam2_mask_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks')
     sam2_mask_files = sorted([f for f in os.listdir(sam2_mask_dir) if f.endswith('.png')])
-    sam2_masks = [sam2.io.imread(os.path.join(sam2_mask_dir, f)) for f in sam2_mask_files]
-    sam2_masks = sam2_masks[:len(sam2_masks)]  # match number of frames
-    print(f"Loaded {len(sam2_masks)} ground truth masks from {sam2_mask_dir}")
+    sam2_masks = [imageio.imread(os.path.join(sam2_mask_dir, f)) for f in sam2_mask_files]
     print(f"Time to load sam2 masks: {time.time() - t0:.2f} seconds")
  
     t1 = time.time()
     # match identified and ground truth masks
     ground_truth_mask_dir = os.path.join(script_dir, '..', 'data', 'masks')
     gt_mask_files = sorted([f for f in os.listdir(ground_truth_mask_dir) if f.endswith('.png')])
-    ground_truth_masks = [sam2.io.imread(os.path.join(ground_truth_mask_dir, f)) for f in gt_mask_files]
+    ground_truth_masks = [imageio.imread(os.path.join(ground_truth_mask_dir, f)) for f in gt_mask_files]
     ground_truth_masks = ground_truth_masks[:len(sam2_masks)]  # match number of frames
     print(f"Loaded {len(ground_truth_masks)} ground truth masks from {ground_truth_mask_dir}")
     print(f"Time to load ground truth masks: {time.time() - t1:.2f} seconds")
@@ -78,7 +119,7 @@ def quantify_sam2_performance():
     print(f"Time to create visualization: {time.time() - t3:.2f} seconds")
     print(f"Total time: {time.time() - t3:.2f} seconds")
     
-def make_sam2_tracking_movie():
+def make_sam2_tracking_movie_unsupervised():
     """
     Create a movie showing the tracking of sam2 masks.
     """
@@ -110,6 +151,7 @@ def make_sam2_tracking_movie():
     print(f"Time to create movie: {time.time() - t3:.2f} seconds")
 
 if __name__ == "__main__":
+    down_sample_video_to_segmented_frames()
     create_sam2_masks_unsupervised()
     create_sam2_masks_prompted()
     quantify_sam2_performance_unsupervised()
