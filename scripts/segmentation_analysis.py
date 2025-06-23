@@ -6,6 +6,7 @@ import imageio
 import numpy as np
 from skimage.io import imread
 import time
+import distinctipy
 
 from skimage.measure import label
 from scipy.optimize import linear_sum_assignment
@@ -176,7 +177,113 @@ def quantify_cellpose_performance():
     visualize_segmentation(cellpose_masks, ground_truth_masks,mp4_path)
     print(f"Time to create visualization: {time.time() - t3:.2f} seconds")
     print(f"Total time: {time.time() - t3:.2f} seconds")
+    
+def track_cells_over_time(masks):
+    """ Track cells over time using a hungarian algorithm. 
+    
+    Args:
+        masks (list of np.ndarray): List of masks for each frame.
+
+    Returns:
+        tracked_masks (list of np.ndarray): List of masks with tracked cell IDs.
+    """
+    tracked_masks = []
+    max_id = 0
+    first_ids = np.unique(masks[0])[1:]  # skip background
+    new_mask = np.zeros_like(masks[0])
+    for first_id in first_ids:
+        max_id += 1
+        new_mask[masks[0] == first_id] = max_id
+    tracked_masks.append(new_mask)
+
+    # Iterate through each frame and track cells
+    for frame_index, current_mask in enumerate(masks[1:], start=1):
+        previous_mask = tracked_masks[frame_index - 1]
+        current_ids = np.unique(current_mask)[1:]  # skip background
+        new_mask = np.zeros_like(current_mask)
+        
+        matches = match_masks(current_mask, previous_mask, iou_threshold=0.5)
+        label_matches = np.array([(match[0], match[1]) for match in matches])
+        
+        for current_label in current_ids:
+            # Check if the current label has a match in the previous frame
+            print('ladidaa')
+            matched = (current_label in label_matches[:,0])
+            if matched:
+                # If matched, keep the same ID
+                print('testitest?')
+                previous_label = label_matches[label_matches[:,0] == current_label, 1][0]
+                new_mask[current_mask == current_label] = previous_label
+            else:
+                # If not matched, assign a new ID
+                max_id += 1
+                new_mask[current_mask == current_label] = max_id
+        
+        tracked_masks.append(new_mask)
+    
+    return tracked_masks
+
+def make_cellpose_tracking_movie():
+    """
+    Create a movie showing the tracking of cellpose masks.
+    """
+    t0 = time.time()
+    print("Creating Cellpose tracking movie...")
+    # Load cellpose masks
+    cellpose_mask_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks')
+    cellpose_mask_files = sorted([f for f in os.listdir(cellpose_mask_dir) if f.endswith('.png')])
+    cellpose_masks = [cellpose.io.imread(os.path.join(cellpose_mask_dir, f)) for f in cellpose_mask_files]
+    print(f"Loaded {len(cellpose_masks)} cellpose masks from {cellpose_mask_dir}")
+    print(f"Time to load cellpose masks: {time.time() - t0:.2f} seconds")
+    
+    print("Tracking cells over time...")
+    t1 = time.time()
+    tracked_masks = track_cells_over_time(cellpose_masks)
+    print(f"Time to track cells: {time.time() - t1:.2f} seconds")
+    
+    print("Converting tracked masks to RGB frames...")
+    t2 = time.time()
+    rgb_frames = tracked_masks_to_rgb(tracked_masks)
+    print(f"Time to convert masks to RGB: {time.time() - t2:.2f} seconds")
+    
+    t3 = time.time()
+    print("Creating movie from tracked masks...")
+    # Create a movie from the masks
+    output_movie_path = os.path.join(script_dir, '..', 'output', 'cellpose_tracking.mp4')
+    imageio.mimsave(output_movie_path, rgb_frames, fps=5)
+    print(f"Saved tracking movie to {output_movie_path}")
+    print(f"Time to create movie: {time.time() - t3:.2f} seconds")
+
+def tracked_masks_to_rgb(tracked_masks):
+    """
+    Convert tracked masks to RGB frames using distinctipy for high-contrast colors.
+    
+    Args:
+        tracked_masks (list of np.ndarray): List of masks with tracked cell IDs.
+
+    Returns:
+        rgb_frames (list of np.ndarray): List of RGB frames corresponding to the tracked masks.
+    """
+    tracked_masks_np = np.array(tracked_masks)
+    print("number of masks in first frame: ", len(np.unique(tracked_masks_np[0])))
+    all_ids = np.unique(tracked_masks_np)
+    print('total_number_of_ids: ', len(all_ids))
+    number_of_ids = len(all_ids) - 1  # Exclude background (0)
+
+    # Generate distinct colors
+    colors = distinctipy.get_colors(number_of_ids, pastel_factor=0.5, rng=42)
+    color_map = {cell_id: tuple(int(255 * c) for c in color) for cell_id, color in zip(all_ids, colors)}
+
+    rgb_frames = []
+    for mask in tracked_masks:
+        rgb = np.zeros((*mask.shape, 3), dtype=np.uint8)
+        for cell_id, color in color_map.items():
+            rgb[mask == cell_id] = color
+        rgb_frames.append(rgb)
+    return rgb_frames
+
 
 if __name__ == "__main__":
     # create_cellpose_masks()
-    quantify_cellpose_performance()
+    # quantify_cellpose_performance()
+    make_cellpose_tracking_movie()
