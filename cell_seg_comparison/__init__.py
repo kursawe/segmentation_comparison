@@ -71,12 +71,13 @@ def quantify_segmentation(predicted_masks, ground_truth_masks, iou_threshold=0.5
 
     for pred_mask, gt_mask in zip(predicted_masks, ground_truth_masks):
         matches = match_masks(pred_mask, gt_mask, iou_threshold=iou_threshold)
-        matched_gt_labels = set(gt_label for _, gt_label, _ in matches)
+        intersection = 0
+        if len(matches) >0:
+            matched_gt_labels = set(gt_label for _, gt_label, _ in matches)
+            matched_ground_truth_objects += len(matched_gt_labels)
+            matches_np = np.array(matches)
+            intersection = np.sum(matches_np[:,2])
         total_ground_truth_objects += len(np.unique(gt_mask)[1:])  # skip background
-        matched_ground_truth_objects += len(matched_gt_labels)
-
-        matches_np = np.array(matches)
-        intersection = np.sum(matches_np[:,2])
         total_intersection += intersection
         total_ground_truth += np.sum(gt_mask > 0)
 
