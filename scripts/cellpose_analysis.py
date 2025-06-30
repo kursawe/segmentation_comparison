@@ -11,7 +11,7 @@ sys.path.append(os.path.join(script_dir, '..'))
 from cell_seg_comparison import *
 
 def create_cellpose_masks():
-    number_frames = 2
+    # number_frames = 2
     output_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks')
     os.makedirs(output_dir, exist_ok=True)
  
@@ -26,7 +26,7 @@ def create_cellpose_masks():
     # images = [cellpose.io.imread((np.asarray(frame))) for frame in reader]
     images = images[239:1784:4]
     # images = images[240:260:4]
-    images = images[:number_frames]
+    # images = images[:number_frames]
     print(f"Loaded {len(images)} frames from {avi_path}")
     print(f"Time to load images: {time.time() - t0:.2f} seconds")
     print("Processing images with Cellpose...")

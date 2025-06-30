@@ -46,13 +46,13 @@ def down_sample_video_to_segmented_frames():
     frames = [frame for i, frame in enumerate(reader) if i % 4 == 0]
     
     for idx, frame in enumerate(frames):
-        frame = frame[300:556, 300:556]  # crop to 256x256
+        # frame = frame[300:556, 300:556]  # crop to 256x256
         imageio.imwrite(os.path.join(output_dir, f"{idx:04d}.jpg"), frame, quality=100, subsampling=0)
     
     print(f"Downsampled video to {len(frames)} frames and saved to {output_dir}")
 
 def create_sam2_masks_unsupervised():
-    number_frames = 2
+    # number_frames = 2
     output_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks')
     os.makedirs(output_dir, exist_ok=True)
  
@@ -93,16 +93,17 @@ def create_sam2_masks_unsupervised():
         for out_obj_id, these_out_mask_logits in zip(out_obj_ids, out_mask_logits):
             # out_mask_logits is a tensor of shape (H, W) with logits for the mask
             # convert logits to binary mask
-            current_frame[these_out_mask_logits[0] > 0.0] = out_obj_id +1
+            current_frame[these_out_mask_logits[0].cpu().numpy() > 0.0] = out_obj_id +1
         # segmented_frames.append(current_frame)
         this_PIL_image = Image.fromarray(current_frame)
         # save the masks as PNG files
         this_PIL_image.save(os.path.join(output_dir, f"mask_{out_frame_idx:04d}.png"))
         # stop after processing the first `number_frames` frames
-        if out_frame_idx >= number_frames - 1:
-            break
+        # if out_frame_idx >= number_frames - 1:
+         #    break
 
-    print(f"Segmented {number_frames} frames.")
+    # print(f"Segmented {number_frames} frames.")
+    print(f"Segmented all frames.")
     print(f"Time to segment images: {time.time() - t2:.2f} seconds")
 
 def quantify_sam2_performance_unsupervised():
@@ -121,7 +122,7 @@ def quantify_sam2_performance_unsupervised():
     ground_truth_masks = ground_truth_masks[:len(sam2_masks)]  # match number of frames
     ground_truth_masks_shrunk = []
     for mask in ground_truth_masks:
-        mask = mask[300:556, 300:556]  # crop to 256x256
+        # mask = mask[300:556, 300:556]  # crop to 256x256
         ground_truth_masks_shrunk.append(mask)
     ground_truth_masks = ground_truth_masks_shrunk
     print(f"Loaded {len(ground_truth_masks)} ground truth masks from {ground_truth_mask_dir}")
@@ -168,7 +169,7 @@ def make_sam2_tracking_movie_unsupervised():
     print(f"Time to create movie: {time.time() - t3:.2f} seconds")
 
 def create_sam2_masks_prompted():
-    number_frames = 2
+    # number_frames = 2
     output_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks_prompted')
     os.makedirs(output_dir, exist_ok=True)
  
@@ -191,7 +192,7 @@ def create_sam2_masks_prompted():
     gt_mask_files = sorted([f for f in os.listdir(ground_truth_mask_dir) if f.endswith('.png')])
     first_gt_mask_file = gt_mask_files[0]
     first_gt_mask = imageio.imread(os.path.join(ground_truth_mask_dir, first_gt_mask_file))
-    first_gt_mask = first_gt_mask[300:556, 300:556]  # crop to 256x256
+    # first_gt_mask = first_gt_mask[300:556, 300:556]  # crop to 256x256
     print(f"The first gt mask has unique values: {np.unique(first_gt_mask)} and shape {first_gt_mask.shape}")
  
     # for each returned mask, provide it to the video predictor as a starting point
@@ -213,16 +214,17 @@ def create_sam2_masks_prompted():
         for out_obj_id, these_out_mask_logits in zip(out_obj_ids, out_mask_logits):
             # out_mask_logits is a tensor of shape (H, W) with logits for the mask
             # convert logits to binary mask
-            current_frame[these_out_mask_logits[0] > 0.0] = out_obj_id
+            current_frame[these_out_mask_logits[0].cpu().numpy() > 0.0] = out_obj_id
         # segmented_frames.append(current_frame)
         this_PIL_image = Image.fromarray(current_frame)
         # save the masks as PNG files
         this_PIL_image.save(os.path.join(output_dir, f"mask_{out_frame_idx:04d}.png"))
         # stop after processing the first `number_frames` frames
-        if out_frame_idx >= number_frames - 1:
-            break
+        # if out_frame_idx >= number_frames - 1:
+        #     break
 
-    print(f"Segmented {number_frames} frames.")
+    # print(f"Segmented {number_frames} frames.")
+    print(f"Segmented all frames.")
     print(f"Time to segment images: {time.time() - t2:.2f} seconds")
 
 def quantify_sam2_performance_prompted():
@@ -241,7 +243,7 @@ def quantify_sam2_performance_prompted():
     ground_truth_masks = ground_truth_masks[:len(sam2_masks)]  # match number of frames
     ground_truth_masks_shrunk = []
     for mask in ground_truth_masks:
-        mask = mask[300:556, 300:556]  # crop to 256x256
+        # mask = mask[300:556, 300:556]  # crop to 256x256
         ground_truth_masks_shrunk.append(mask)
     ground_truth_masks = ground_truth_masks_shrunk
     print(f"Loaded {len(ground_truth_masks)} ground truth masks from {ground_truth_mask_dir}")
@@ -289,10 +291,10 @@ def make_sam2_tracking_movie_prompted():
 
 
 if __name__ == "__main__":
-    # down_sample_video_to_segmented_frames()
-    # create_sam2_masks_unsupervised()
-    # quantify_sam2_performance_unsupervised()
-    # make_sam2_tracking_movie_unsupervised()
+    down_sample_video_to_segmented_frames()
+    create_sam2_masks_unsupervised()
+    quantify_sam2_performance_unsupervised()
+    make_sam2_tracking_movie_unsupervised()
     create_sam2_masks_prompted()
     quantify_sam2_performance_prompted()
     make_sam2_tracking_movie_prompted()
