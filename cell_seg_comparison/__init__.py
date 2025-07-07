@@ -3,6 +3,8 @@ import torch
 import imageio
 import numpy as np
 import distinctipy
+import time
+import colorsys
 
 from scipy.optimize import linear_sum_assignment
 
@@ -194,7 +196,8 @@ def tracked_masks_to_rgb(tracked_masks):
     number_of_ids = len(all_ids) - 1  # Exclude background (0)
 
     # Generate distinct colors
-    colors = distinctipy.get_colors(number_of_ids, pastel_factor=0.5, rng=42)
+    #distinctipy.get_distinct_colors(number_of_ids, random_seed=42)
+    colors = get_distinct_colors(number_of_ids)
     color_map = {cell_id: tuple(int(255 * c) for c in color) for cell_id, color in zip(all_ids, colors)}
 
     rgb_frames = []
@@ -204,6 +207,26 @@ def tracked_masks_to_rgb(tracked_masks):
             rgb[mask == cell_id] = color
         rgb_frames.append(rgb)
     return rgb_frames
+
+def get_distinct_colors(number_of_colors):
+    """Returns number_of_colors different colors
+    
+    Parameters
+    ----------
+    
+    number_of_colors : int
+    
+    Returns
+    -------
+    
+    colormap : list
+        a list where each entry is a different color
+    """
+    HSV_tuples = [(color_index*1.0/number_of_colors, 1.0, 0.7) for color_index in range(number_of_colors)]
+    RGB_tuples = list(map(lambda color: colorsys.hsv_to_rgb(*color), HSV_tuples))
+    np.random.shuffle(RGB_tuples)
+
+    return RGB_tuples
 
 def get_torch_device():
     """
