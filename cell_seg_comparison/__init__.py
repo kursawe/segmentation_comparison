@@ -8,7 +8,8 @@ from scipy.optimize import linear_sum_assignment
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
-#njit does not accelerate this function
+# njit does not accelerate this function
+# @njit
 def compute_iou_matrix(predicted_mask: np.ndarray,
                        ground_truth_mask: np.ndarray
                        ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -27,13 +28,41 @@ def compute_iou_matrix(predicted_mask: np.ndarray,
     predicted_labels = np.unique(predicted_mask)[1:]  # skip background
     ground_truth_labels = np.unique(ground_truth_mask)[1:]
     iou_matrix = np.zeros((len(predicted_labels), len(ground_truth_labels)))
+
+    # Compute centroids for predicted and ground truth labels
+    pred_centroids = []
+    for label in predicted_labels:
+        coords = np.column_stack(np.where(predicted_mask == label))
+        pred_centroids.append(coords.mean(axis=0))
+    pred_centroids = np.array(pred_centroids)
+
+    gt_centroids = []
+    for label in ground_truth_labels:
+        coords = np.column_stack(np.where(ground_truth_mask == label))
+        gt_centroids.append(coords.mean(axis=0))
+    gt_centroids = np.array(gt_centroids)
+
+    # Compute distances between all centroids
+    # distances = cdist(pred_centroids, gt_centroids)
+
     for i, pred_label in enumerate(predicted_labels):
+        # Find indices of k closest ground truth labels
+        dists = np.empty(len(ground_truth_labels), dtype=np.float64)
+        for j in range(len(ground_truth_labels)):
+            dists[j] = np.sqrt(
+                (pred_centroids[i, 0] - gt_centroids[j, 0]) ** 2 +
+                (pred_centroids[i, 1] - gt_centroids[j, 1]) ** 2
+            )
+        closest_indices = np.argsort(dists)[:3]
+        # closest_indices = np.argsort(distances[i])[:3]
         pred_obj = predicted_mask == pred_label
-        for j, gt_label in enumerate(ground_truth_labels):
+        for j in closest_indices:
+            gt_label = ground_truth_labels[j]
             gt_obj = ground_truth_mask == gt_label
             intersection = np.logical_and(pred_obj, gt_obj).sum()
             union = np.logical_or(pred_obj, gt_obj).sum()
             iou_matrix[i, j] = intersection / union if union > 0 else 0
+
     return iou_matrix, predicted_labels, ground_truth_labels
 
 def match_masks(predicted_mask, ground_truth_mask, iou_threshold=0.5):
