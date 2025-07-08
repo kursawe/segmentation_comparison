@@ -3,12 +3,15 @@ import torch
 import imageio
 import numpy as np
 import distinctipy
+import time
+import colorsys
 
 from scipy.optimize import linear_sum_assignment
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 
-#njit does not accelerate this function
+# njit does not accelerate this function
+# @njit
 def compute_iou_matrix(predicted_mask: np.ndarray,
                        ground_truth_mask: np.ndarray
                        ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -27,13 +30,41 @@ def compute_iou_matrix(predicted_mask: np.ndarray,
     predicted_labels = np.unique(predicted_mask)[1:]  # skip background
     ground_truth_labels = np.unique(ground_truth_mask)[1:]
     iou_matrix = np.zeros((len(predicted_labels), len(ground_truth_labels)))
+
+    # Compute centroids for predicted and ground truth labels
+    pred_centroids = []
+    for label in predicted_labels:
+        coords = np.column_stack(np.where(predicted_mask == label))
+        pred_centroids.append(coords.mean(axis=0))
+    pred_centroids = np.array(pred_centroids)
+
+    gt_centroids = []
+    for label in ground_truth_labels:
+        coords = np.column_stack(np.where(ground_truth_mask == label))
+        gt_centroids.append(coords.mean(axis=0))
+    gt_centroids = np.array(gt_centroids)
+
+    # Compute distances between all centroids
+    # distances = cdist(pred_centroids, gt_centroids)
+
     for i, pred_label in enumerate(predicted_labels):
+        # Find indices of k closest ground truth labels
+        dists = np.empty(len(ground_truth_labels), dtype=np.float64)
+        for j in range(len(ground_truth_labels)):
+            dists[j] = np.sqrt(
+                (pred_centroids[i, 0] - gt_centroids[j, 0]) ** 2 +
+                (pred_centroids[i, 1] - gt_centroids[j, 1]) ** 2
+            )
+        closest_indices = np.argsort(dists)[:3]
+        # closest_indices = np.argsort(distances[i])[:3]
         pred_obj = predicted_mask == pred_label
-        for j, gt_label in enumerate(ground_truth_labels):
+        for j in closest_indices:
+            gt_label = ground_truth_labels[j]
             gt_obj = ground_truth_mask == gt_label
             intersection = np.logical_and(pred_obj, gt_obj).sum()
             union = np.logical_or(pred_obj, gt_obj).sum()
             iou_matrix[i, j] = intersection / union if union > 0 else 0
+
     return iou_matrix, predicted_labels, ground_truth_labels
 
 def match_masks(predicted_mask, ground_truth_mask, iou_threshold=0.5):
@@ -165,7 +196,8 @@ def tracked_masks_to_rgb(tracked_masks):
     number_of_ids = len(all_ids) - 1  # Exclude background (0)
 
     # Generate distinct colors
-    colors = distinctipy.get_colors(number_of_ids, pastel_factor=0.5, rng=42)
+    #distinctipy.get_distinct_colors(number_of_ids, random_seed=42)
+    colors = get_distinct_colors(number_of_ids)
     color_map = {cell_id: tuple(int(255 * c) for c in color) for cell_id, color in zip(all_ids, colors)}
 
     rgb_frames = []
@@ -175,6 +207,26 @@ def tracked_masks_to_rgb(tracked_masks):
             rgb[mask == cell_id] = color
         rgb_frames.append(rgb)
     return rgb_frames
+
+def get_distinct_colors(number_of_colors):
+    """Returns number_of_colors different colors
+    
+    Parameters
+    ----------
+    
+    number_of_colors : int
+    
+    Returns
+    -------
+    
+    colormap : list
+        a list where each entry is a different color
+    """
+    HSV_tuples = [(color_index*1.0/number_of_colors, 1.0, 0.7) for color_index in range(number_of_colors)]
+    RGB_tuples = list(map(lambda color: colorsys.hsv_to_rgb(*color), HSV_tuples))
+    np.random.shuffle(RGB_tuples)
+
+    return RGB_tuples
 
 def get_torch_device():
     """
