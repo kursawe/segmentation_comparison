@@ -69,7 +69,7 @@ def create_sam2_masks_unsupervised():
     first_tiff_file = tiff_files[0]
     first_image = Image.open(os.path.join(tifffolder, first_tiff_file))
     first_image = np.array(first_image.convert("RGB"))
-    inference_state = predictor.init_state(video_path=tifffolder)
+    inference_state = predictor.init_state(video_path=tifffolder, offload_video_to_cpu=True, offload_state_to_cpu = True)
     print('generated inference state')
     first_masks = mask_generator.generate(first_image)
     print(f"Generated {len(first_masks)} masks for the first image.")
@@ -184,7 +184,7 @@ def create_sam2_masks_prompted():
     first_tiff_file = tiff_files[0]
     first_image = Image.open(os.path.join(tifffolder, first_tiff_file))
     first_image = np.array(first_image.convert("RGB"))
-    inference_state = predictor.init_state(video_path=tifffolder)
+    inference_state = predictor.init_state(video_path=tifffolder, offload_video_to_cpu=True, offload_state_to_cpu=True )
     print('generated inference state')
 
     # get ground truth starting point

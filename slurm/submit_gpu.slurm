@@ -14,7 +14,7 @@ echo "Running segmentation comparison ..."
 source /software/conda/jk263/minforge3/etc/profile.d/conda.sh
 conda activate sam2
 
-time python /sharedscratch/jk263/projects/segmentation_comparison/scripts/cellpose_analysis.py
+# time python /sharedscratch/jk263/projects/segmentation_comparison/scripts/cellpose_analysis.py
 time python /sharedscratch/jk263/projects/segmentation_comparison/scripts/sam2_analysis.py
 
 
