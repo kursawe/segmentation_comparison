@@ -70,6 +70,7 @@ def make_folders_for_training_and_testing():
     print(f"Saved {len(frames)}  training frames to {output_dir}")
 
     output_dir = os.path.join(script_dir, '..', 'output', 'masks_training')
+    os.makedirs(output_dir, exist_ok=True)
     ground_truth_mask_dir = os.path.join(script_dir, '..', 'data', 'masks')
     gt_mask_files = sorted([f for f in os.listdir(ground_truth_mask_dir) if f.endswith('.png')])
     ground_truth_masks = [imageio.imread(os.path.join(ground_truth_mask_dir, f)) for f in gt_mask_files]
