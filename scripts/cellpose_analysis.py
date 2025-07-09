@@ -123,7 +123,7 @@ def train_cellpose_sam():
     model_name = "abdomen_model"
 
     # default training params
-    n_epochs = 100
+    n_epochs = 30
     # n_epochs = 2
     learning_rate = 1e-5
     weight_decay = 0.1
@@ -145,10 +145,10 @@ def train_cellpose_sam():
     ground_truth_masks = [cellpose.io.imread(os.path.join(ground_truth_mask_dir, f)) for f in gt_mask_files]
     # ground_truth_masks = ground_truth_masks[:len(cellpose_masks)]  # match number of frames
 
-    training_data = images[:160] + images[320:]  # select frames for training
-    training_labels = ground_truth_masks[:160] + ground_truth_masks[320:]  # select corresponding masks for training
-    test_data = images[160:240]  # select frames for testing
-    test_labels = ground_truth_masks[160:240]  # select corresponding masks for testing
+    training_data = images[:320] + images[340:]  # select frames for training
+    training_labels = ground_truth_masks[:320] + ground_truth_masks[340:]  # select corresponding masks for training
+    test_data = images[320:340]  # select frames for testing
+    test_labels = ground_truth_masks[320:340]  # select corresponding masks for testing
     
     # training_data = training_data[:1]
     # training_labels = training_labels[:1]
@@ -199,14 +199,14 @@ def quantify_trained_cellpose_performance():
     images = [cellpose.io.imread(os.path.join(tifffolder, f)) for f in tiff_files]
     images = images[239:1783:4]
     print(f"Loaded {len(images)} frames from {tifffolder}")
-    validation_images = images[260:320]  # match number of frames
+    validation_images = images[320:340]  # match number of frames
     # validation_images = validation_images[:1]  # for testing, use only one frame
     
     # Load ground truth masks
     ground_truth_mask_dir = os.path.join(script_dir, '..', 'data', 'masks')
     gt_mask_files = sorted([f for f in os.listdir(ground_truth_mask_dir) if f.endswith('.png')])
     ground_truth_masks = [cellpose.io.imread(os.path.join(ground_truth_mask_dir, f)) for f in gt_mask_files]
-    ground_truth_masks = ground_truth_masks[260:320]  # match number of frames
+    ground_truth_masks = ground_truth_masks[320:340]  # match number of frames
     
     # Evaluate the model on the test data
     cellpose_masks = []
