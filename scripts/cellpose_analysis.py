@@ -189,7 +189,7 @@ def quantify_trained_cellpose_performance():
     print("Quantifying performance of trained Cellpose model...")
     
     # Load the trained model
-    new_model_path = os.path.join(script_dir, 'models', 'abdomen_model')
+    new_model_path = os.path.join(script_dir,'..', 'models', 'abdomen_model')
     model = cellpose.models.CellposeModel(gpu=True,
                                           pretrained_model = new_model_path)
     
@@ -238,5 +238,5 @@ if __name__ == "__main__":
     # create_cellpose_masks()
     # quantify_cellpose_performance()
     # make_cellpose_tracking_movie()
-    train_cellpose_sam()
+    # train_cellpose_sam()
     quantify_trained_cellpose_performance()
