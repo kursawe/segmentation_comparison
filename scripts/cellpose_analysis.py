@@ -165,6 +165,7 @@ def train_cellpose_sam():
                                                             learning_rate=learning_rate,
                                                             weight_decay=weight_decay,
                                                             nimg_per_epoch=len(training_data), # can change this
+                                                            save_path = os.path.join(script_dir,'..','models')
                                                             model_name=model_name)
     print(f"train losses are {train_losses}")
     print(f"test losses are {test_losses}")
