@@ -26,7 +26,7 @@ def create_cellpose_masks():
     # images = cellpose.io.imread(avi_path)
     # reader = imageio.get_reader(avi_path)
     # images = [cellpose.io.imread((np.asarray(frame))) for frame in reader]
-    images = images[239:1784:4]
+    images = images[240:1785:4]
     # images = images[240:260:4]
     # images = images[:number_frames]
     print(f"Loaded {len(images)} frames from {avi_path}")
@@ -137,7 +137,7 @@ def train_cellpose_sam():
     # images = cellpose.io.imread(avi_path)
     # reader = imageio.get_reader(avi_path)
     # images = [cellpose.io.imread((np.asarray(frame))) for frame in reader]
-    images = images[239:1783:4]
+    images = images[240:1784:4]
     print(f"Loaded {len(images)} frames from {tifffolder}")
     
     ground_truth_mask_dir = os.path.join(script_dir, '..', 'data', 'masks')
@@ -197,7 +197,7 @@ def quantify_trained_cellpose_performance():
     tifffolder = os.path.join(script_dir,'..','data','tiffstack')
     tiff_files = sorted([f for f in os.listdir(tifffolder) if f.lower().endswith('.tif') or f.lower().endswith('.tiff')])
     images = [cellpose.io.imread(os.path.join(tifffolder, f)) for f in tiff_files]
-    images = images[239:1783:4]
+    images = images[240:1784:4]
     print(f"Loaded {len(images)} frames from {tifffolder}")
     validation_images = images[320:340]  # match number of frames
     # validation_images = validation_images[:1]  # for testing, use only one frame
@@ -235,8 +235,8 @@ def quantify_trained_cellpose_performance():
     print(f"Saved tracking movie to {output_movie_path}")
  
 if __name__ == "__main__":
-    # create_cellpose_masks()
-    # quantify_cellpose_performance()
-    # make_cellpose_tracking_movie()
-    # train_cellpose_sam()
+    create_cellpose_masks()
+    quantify_cellpose_performance()
+    make_cellpose_tracking_movie()
+    train_cellpose_sam()
     quantify_trained_cellpose_performance()

@@ -43,7 +43,7 @@ def down_sample_video_to_segmented_frames():
     reader = imageio.get_reader(avi_path)
     
     # downsample by taking every 4th frame
-    frames = [frame for i, frame in enumerate(reader) if i % 4 == 0 and i >= 238 and i <= 1784]
+    frames = [frame for i, frame in enumerate(reader) if i % 4 == 0 and i >= 240 and i <= 1786]
     
     for idx, frame in enumerate(frames):
         # frame = frame[300:556, 300:556]  # crop to 256x256
@@ -55,30 +55,46 @@ def make_folders_for_training_and_testing():
     """
     Downsample the video to a sequence of frames for segmentation.
     """
-    output_dir = os.path.join(script_dir, '..', 'output', 'tiffstack_training')
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir_1 = os.path.join(script_dir, '..', 'output', 'tiffstack_training','0000')
+    os.makedirs(output_dir_1, exist_ok=True)
     
     avi_path = os.path.join(script_dir,'..','data','movie1_AB060922a_Job3_All_25_fps.avi')
     reader = imageio.get_reader(avi_path)
-    frames = [frame for i, frame in enumerate(reader) if i % 4 == 0 and i >= 238 and i <= 1783]
-    frames = frames[:160] + frames[320:]
+    all_frames = [frame for i, frame in enumerate(reader) if i % 4 == 0 and i >= 240 and i <= 1785]
+    first_frames = frames[:320]
     
-    for idx, frame in enumerate(frames):
+    for idx, frame in enumerate(first_frames):
         # frame = frame[300:556, 300:556]  # crop to 256x256
-        imageio.imwrite(os.path.join(output_dir, f"{idx:04d}.jpg"), frame, quality=100, subsampling=0)
+        imageio.imwrite(os.path.join(output_dir_1, f"{idx:04d}.jpg"), frame, quality=100, subsampling=0)
     
     print(f"Saved {len(frames)}  training frames to {output_dir}")
 
-    output_dir = os.path.join(script_dir, '..', 'output', 'masks_training')
-    os.makedirs(output_dir, exist_ok=True)
+    output_dir_2 = os.path.join(script_dir, '..', 'output', 'tiffstack_training','0001')
+    os.makedirs(output_dir_2, exist_ok=True)
+    second_frames = frames[340:]
+    
+    for idx, frame in enumerate(second_frames):
+        # frame = frame[300:556, 300:556]  # crop to 256x256
+        imageio.imwrite(os.path.join(output_dir_2, f"{idx:04d}.jpg"), frame, quality=100, subsampling=0)
+ 
+
     ground_truth_mask_dir = os.path.join(script_dir, '..', 'data', 'masks')
     gt_mask_files = sorted([f for f in os.listdir(ground_truth_mask_dir) if f.endswith('.png')])
-    ground_truth_masks = [imageio.imread(os.path.join(ground_truth_mask_dir, f)) for f in gt_mask_files]
+    all_ground_truth_masks = [imageio.imread(os.path.join(ground_truth_mask_dir, f)) for f in gt_mask_files]
     print(f"Loaded {len(ground_truth_masks)} ground truth masks from {ground_truth_mask_dir}")
-    ground_truth_masks = ground_truth_masks[:160] + ground_truth_masks[320:]  # match number of frames
 
-    for idx, frame in enumerate(frames):
-        imageio.imwrite(os.path.join(output_dir, f"{idx:04d}.jpg"), frame, quality=100, subsampling=0)
+    output_dir_3 = os.path.join(script_dir, '..', 'output', 'masks_training', '00000')
+    os.makedirs(output_dir_3, exist_ok=True)
+    first_ground_truth_masks = ground_truth_masks[:320]  # match number of frames
+    for idx, frame in enumerate(first_ground_truth_masks):
+        imageio.imwrite(os.path.join(output_dir_3, f"{idx:04d}.jpg"), frame, quality=100, subsampling=0)
+    print(f"saved {len(ground_truth_masks)} training masks to {output_dir}")
+
+    output_dir_4 = os.path.join(script_dir, '..', 'output', 'masks_training', '00001')
+    os.makedirs(output_dir_4, exist_ok=True)
+    second_ground_truth_masks = ground_truth_masks[340:]  # match number of frames
+    for idx, frame in enumerate(second_ground_truth_masks):
+        imageio.imwrite(os.path.join(output_dir_4, f"{idx:04d}.jpg"), frame, quality=100, subsampling=0)
     print(f"saved {len(ground_truth_masks)} training masks to {output_dir}")
  
 def create_sam2_masks_unsupervised():
