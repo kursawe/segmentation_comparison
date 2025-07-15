@@ -5,6 +5,8 @@ import os
 import imageio
 import time
 from matplotlib import pyplot as plt
+from skimage.morphology import binary_dilation as skimage_dilation
+from skimage.morphology import disk as skimage_disk
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -111,7 +113,7 @@ def make_cellpose_tracking_movie():
     print(f"Saved tracking movie to {output_movie_path}")
     print(f"Time to create movie: {time.time() - t3:.2f} seconds")
     
-def train_cellpose_sam():
+def train_cellpose_sam(use_reduced_masks=False):
     """
     Train a Cellpose model using Rebeeca's data
     """
@@ -120,7 +122,10 @@ def train_cellpose_sam():
     
     model = cellpose.models.CellposeModel(gpu=True)
 
-    model_name = "abdomen_model"
+    if use_reduced_masks:
+        model_name = "abdomen_model_reduced_masks"
+    else:
+        model_name = "abdomen_model"
 
     # default training params
     n_epochs = 30
@@ -130,14 +135,16 @@ def train_cellpose_sam():
     batch_size = 1
     
     # training data:
-    tifffolder = os.path.join(script_dir,'..','data','tiffstack')
-    tiff_files = sorted([f for f in os.listdir(tifffolder) if f.lower().endswith('.tif') or f.lower().endswith('.tiff')])
-    # print(tiff_files)
-    images = [cellpose.io.imread(os.path.join(tifffolder, f)) for f in tiff_files]
-    # images = cellpose.io.imread(avi_path)
-    # reader = imageio.get_reader(avi_path)
-    # images = [cellpose.io.imread((np.asarray(frame))) for frame in reader]
-    images = images[240:1784:4]
+    if use_reduced_masks:
+        print("Using reduced masks for training")
+        training_data_dir = os.path.join(script_dir, '..', 'output', 'cellpose_training_data')
+        training_mask_files = sorted([f for f in os.listdir(training_data_dir) if f.endswith('.png')])
+        images = [cellpose.io.imread(os.path.join(training_data_dir, f)) for f in training_mask_files]
+    else:
+        tifffolder = os.path.join(script_dir,'..','data','tiffstack')
+        tiff_files = sorted([f for f in os.listdir(tifffolder) if f.lower().endswith('.tif') or f.lower().endswith('.tiff')])
+        images = [cellpose.io.imread(os.path.join(tifffolder, f)) for f in tiff_files]
+        images = images[240:1784:4]
     print(f"Loaded {len(images)} frames from {tifffolder}")
     
     ground_truth_mask_dir = os.path.join(script_dir, '..', 'data', 'masks')
@@ -182,7 +189,7 @@ def train_cellpose_sam():
     plt.tight_layout()
     plt.savefig(os.path.join(script_dir, '..', 'output', f'{model_name}_losses.pdf'))
 
-def quantify_trained_cellpose_performance():
+def quantify_trained_cellpose_performance(use_reduced_masks=False):
     """
     Quantify the performance of the trained Cellpose model.
     """
@@ -190,7 +197,10 @@ def quantify_trained_cellpose_performance():
     print("Quantifying performance of trained Cellpose model...")
     
     # Load the trained model
-    new_model_path = os.path.join(script_dir,'..', 'models', 'abdomen_model')
+    if use_reduced_masks:
+        new_model_path = os.path.join(script_dir,'..', 'models', 'abdomen_model_reduced_masks')
+    else:
+        new_model_path = os.path.join(script_dir,'..', 'models', 'abdomen_model')
     model = cellpose.models.CellposeModel(gpu=True,
                                           pretrained_model = new_model_path)
     
@@ -220,7 +230,10 @@ def quantify_trained_cellpose_performance():
     
     print(f"Percentage of ground truth masks found: {(100*percent_found):.2f}%")
     print(f"Global IoT score: {global_iot:.4f}")
-    mp4_path = os.path.join(script_dir, '..', 'output', 'segmentation_comparison_trained_cellpose.mp4')
+    if use_reduced_masks:
+        mp4_path = os.path.join(script_dir, '..', 'output', 'segmentation_comparison_improved_trained_cellpose.mp4')
+    else:
+        mp4_path = os.path.join(script_dir, '..', 'output', 'segmentation_comparison_trained_cellpose.mp4')
     visualize_segmentation(cellpose_masks, ground_truth_masks,mp4_path)
  
     print("Tracking cells over time...")
@@ -231,13 +244,56 @@ def quantify_trained_cellpose_performance():
     
     print("Creating movie from tracked masks...")
     # Create a movie from the masks
-    output_movie_path = os.path.join(script_dir, '..', 'output', 'cellpose_trained_tracking.mp4')
+    if use_reduced_masks:
+        output_movie_path = os.path.join(script_dir, '..', 'output', 'cellpose_trained_tracking_reduced_masks.mp4')
+    else:
+        output_movie_path = os.path.join(script_dir, '..', 'output', 'cellpose_trained_tracking.mp4')
     imageio.mimsave(output_movie_path, rgb_frames, fps=5)
     print(f"Saved tracking movie to {output_movie_path}")
+    
+def make_cellpose_training_data():
+    """
+    Loads a movie and ground truth masks, dilates the ground truth mask, and applies it to the movie frames.
+    Only keeps intensity data where ground truth cells exist (with dilation).
+    """
+    output_dir = os.path.join(script_dir, '..', 'output', 'cellpose_training_data')
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Load movie frames (assuming TIFF stack or list of images)
+    tifffolder = os.path.join(script_dir,'..','data','tiffstack')
+    tiff_files = sorted([f for f in os.listdir(tifffolder) if f.lower().endswith('.tif') or f.lower().endswith('.tiff')])
+    images = [cellpose.io.imread(os.path.join(tifffolder, f)) for f in tiff_files]
+    images = images[240:1785:4]
+
+    # Load ground truth masks
+    ground_truth_mask_dir = os.path.join(script_dir, '..', 'data', 'masks')
+    gt_mask_files = sorted([f for f in os.listdir(ground_truth_mask_dir) if f.endswith('.png')])
+    ground_truth_masks = [cellpose.io.imread(os.path.join(ground_truth_mask_dir, f)) for f in gt_mask_files]
  
+    masked_frames = []
+    masked_frame = np.zeros_like(images[0])
+    for index, (frame, gt_mask) in enumerate(zip(images, ground_truth_masks)):
+        # Make binary mask: 1 where any cell exists
+        binary_mask = (gt_mask > 0)
+        # Dilate the mask
+        dilated_mask = skimage_dilation(binary_mask, skimage_disk(5))
+        # Apply mask to frame
+        masked_frame[:] = 0
+        masked_frame[dilated_mask] = frame[dilated_mask]
+        masked_frames.append(np.copy(masked_frame))
+        # Optionally save each masked frame
+        cellpose.io.imsave(os.path.join(output_dir, f"masked_frame_{index:04d}.png"), masked_frame)
+    
+    
+    output_movie_path = os.path.join(script_dir, '..', 'output', 'cellpose_new_training_data.mp4')
+    imageio.mimsave(output_movie_path, masked_frames, fps=5)
+
 if __name__ == "__main__":
-    create_cellpose_masks()
-    quantify_cellpose_performance()
-    make_cellpose_tracking_movie()
-    train_cellpose_sam()
-    quantify_trained_cellpose_performance()
+    # create_cellpose_masks()
+    # quantify_cellpose_performance()
+    # make_cellpose_tracking_movie()
+    # make_cellpose_training_data()
+    # train_cellpose_sam(use_reduced_masks = False)
+    # train_cellpose_sam(use_reduced_masks = True)
+    # quantify_trained_cellpose_performance(uss_reduced_masks = False)
+    # quantify_trained_cellpose_performance(uss_reduced_masks = True)
