@@ -137,9 +137,9 @@ def train_cellpose_sam(use_reduced_masks=False):
     # training data:
     if use_reduced_masks:
         print("Using reduced masks for training")
-        training_data_dir = os.path.join(script_dir, '..', 'output', 'cellpose_training_data')
-        training_mask_files = sorted([f for f in os.listdir(training_data_dir) if f.endswith('.png')])
-        images = [cellpose.io.imread(os.path.join(training_data_dir, f)) for f in training_mask_files]
+        tifffolder = os.path.join(script_dir, '..', 'output', 'cellpose_training_data')
+        training_mask_files = sorted([f for f in os.listdir(tifffolder) if f.endswith('.png')])
+        images = [cellpose.io.imread(os.path.join(tifffolder, f)) for f in training_mask_files]
     else:
         tifffolder = os.path.join(script_dir,'..','data','tiffstack')
         tiff_files = sorted([f for f in os.listdir(tifffolder) if f.lower().endswith('.tif') or f.lower().endswith('.tiff')])
@@ -295,5 +295,5 @@ if __name__ == "__main__":
     # make_cellpose_training_data()
     # train_cellpose_sam(use_reduced_masks = False)
     # train_cellpose_sam(use_reduced_masks = True)
-    # quantify_trained_cellpose_performance(uss_reduced_masks = False)
-    # quantify_trained_cellpose_performance(uss_reduced_masks = True)
+    quantify_trained_cellpose_performance(use_reduced_masks = False)
+    quantify_trained_cellpose_performance(use_reduced_masks = True)
