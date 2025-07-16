@@ -49,7 +49,7 @@ def create_cellpose_masks():
     print(f"Segmented {len(cellpose_masks)} frames.")
     print(f"Time to segment images: {time.time() - t2:.2f} seconds")
 
-def quantify_cellpose_performance():
+def quantify_cellpose_performance(use_reduced_data = False):
     t0 = time.time()
     # match identified and ground truth masks
     cellpose_mask_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks')
@@ -58,7 +58,7 @@ def quantify_cellpose_performance():
     cellpose_masks = cellpose_masks[:len(cellpose_masks)]  # match number of frames
     print(f"Loaded {len(cellpose_masks)} ground truth masks from {cellpose_mask_dir}")
     print(f"Time to load cellpose masks: {time.time() - t0:.2f} seconds")
- 
+
     t1 = time.time()
     # match identified and ground truth masks
     ground_truth_mask_dir = os.path.join(script_dir, '..', 'data', 'masks')
@@ -67,6 +67,10 @@ def quantify_cellpose_performance():
     ground_truth_masks = ground_truth_masks[:len(cellpose_masks)]  # match number of frames
     print(f"Loaded {len(ground_truth_masks)} ground truth masks from {ground_truth_mask_dir}")
     print(f"Time to load ground truth masks: {time.time() - t1:.2f} seconds")
+ 
+    if use_reduced_data:
+        cellpose_masks = cellpose_masks[320:340]  # select frames for testing
+        ground_truth_masks = ground_truth_masks[320:340]  # select corresponding masks for testing
  
     t2 = time.time()
     # Quantification
@@ -77,7 +81,11 @@ def quantify_cellpose_performance():
 
     t3 = time.time()
     # Visualization
-    mp4_path = os.path.join(script_dir, '..', 'output', 'segmentation_comparison_cellpose.mp4')
+    if use_reduced_data:
+        filename = 'segmentation_comparison_cellpose_reduced.mp4'
+    else:
+        filename = 'segmentation_comparison_cellpose.mp4'
+    mp4_path = os.path.join(script_dir, '..', 'output', filename)
     visualize_segmentation(cellpose_masks, ground_truth_masks,mp4_path)
     print(f"Time to create visualization: {time.time() - t3:.2f} seconds")
     print(f"Total time: {time.time() - t3:.2f} seconds")
@@ -290,10 +298,11 @@ def make_cellpose_training_data():
 
 if __name__ == "__main__":
     # create_cellpose_masks()
-    # quantify_cellpose_performance()
+    quantify_cellpose_performance(use_reduced_data= False)
+    quantify_cellpose_performance(use_reduced_data= True)
     # make_cellpose_tracking_movie()
     # make_cellpose_training_data()
     # train_cellpose_sam(use_reduced_masks = False)
     # train_cellpose_sam(use_reduced_masks = True)
-    quantify_trained_cellpose_performance(use_reduced_masks = False)
-    quantify_trained_cellpose_performance(use_reduced_masks = True)
+    # quantify_trained_cellpose_performance(use_reduced_masks = False)
+    # quantify_trained_cellpose_performance(use_reduced_masks = True)
