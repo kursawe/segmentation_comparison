@@ -14,10 +14,12 @@ import sys
 sys.path.append(os.path.join(script_dir, '..'))
 from cell_seg_comparison import *
 
-def create_cellpose_masks():
+def create_cellpose_masks( segmentation_option = 'standard'):
+    '''
+    segmeentation option is one of 'standard', '3d', or 'stitching'
+    '''
     # number_frames = 2
-    output_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks')
-    os.makedirs(output_dir, exist_ok=True)
+    print(f"Creating Cellpose masks with segmentation option: {segmentation_option}")
  
     t0 = time.time()
     avi_path = os.path.join(script_dir,'..','data','movie1_AB060922a_Job3_All_25_fps.avi')
@@ -39,20 +41,53 @@ def create_cellpose_masks():
     # apply cellpose to each image in the tiff sequence
     cellpose_model = cellpose.models.CellposeModel(gpu=True)  # set gpu=False if you don't have a GPU
     print("Cellpose model loaded.")
+    
     cellpose_masks = []
-    for index, image in enumerate(images):
-        # img should be a numpy array (H, W) or (H, W, C)
-        mask, _, _ = cellpose_model.eval(image)
-        cellpose_masks.append(mask)
-        cellpose.io.imsave(os.path.join(output_dir, f"mask_{index:04d}.png"), mask)
+    if segmentation_option == '3d':
+        output_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks_3d')
+        os.makedirs(output_dir, exist_ok=True)
+        image_3d = np.array(images)
+        masks, _, _ = cellpose_model.eval(image_3d, z_axis=0, channel_axis=1,
+                                batch_size=32,
+                                do_3D=True, flow3D_smooth=1)
+        for mask in masks:
+            cellpose_masks.append(mask)
+            cellpose.io.imsave(os.path.join(output_dir, f"mask_{index:04d}.png"), mask)
+    elif segmentation_option == 'standard':
+        output_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks')
+        os.makedirs(output_dir, exist_ok=True)
+        for index, image in enumerate(images):
+            # img should be a numpy array (H, W) or (H, W, C)
+            mask, _, _ = cellpose_model.eval(image)
+            cellpose_masks.append(mask)
+            cellpose.io.imsave(os.path.join(output_dir, f"mask_{index:04d}.png"), mask)
+    elif segmentation_option == 'stitching':
+        output_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks_stitching')
+        os.makedirs(output_dir, exist_ok=True)
+        image_3d = np.array(images)
+        masks, _, _ = cellpose_model.eval(image_3d, z_axis=0, channel_axis=1,
+                                batch_size=32,
+                                do_3D=False, stitch_threshold = 0.5)
+        for mask in masks:
+            cellpose_masks.append(mask)
+            cellpose.io.imsave(os.path.join(output_dir, f"mask_{index:04d}.png"), mask)
     
     print(f"Segmented {len(cellpose_masks)} frames.")
     print(f"Time to segment images: {time.time() - t2:.2f} seconds")
 
-def quantify_cellpose_performance(use_reduced_data = False):
+def quantify_cellpose_performance(use_reduced_data = False, segmentation_option = 'standard'):
     t0 = time.time()
     # match identified and ground truth masks
-    cellpose_mask_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks')
+    if segmentation_option == 'standard':
+        cellpose_mask_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks')
+        saving_name = 'segmentation_comparison_cellpose'
+    elif segmentation_option == '3d':
+        cellpose_mask_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks_3d')
+        saving_name = 'segmentation_comparison_cellpose_3d'
+    elif segmentation_option == 'stitching':
+        saving_name = 'segmentation_comparison_cellpose_stitching'
+        cellpose_mask_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks_stitching')
+
     cellpose_mask_files = sorted([f for f in os.listdir(cellpose_mask_dir) if f.endswith('.png')])
     cellpose_masks = [cellpose.io.imread(os.path.join(cellpose_mask_dir, f)) for f in cellpose_mask_files]
     cellpose_masks = cellpose_masks[:len(cellpose_masks)]  # match number of frames
@@ -82,22 +117,31 @@ def quantify_cellpose_performance(use_reduced_data = False):
     t3 = time.time()
     # Visualization
     if use_reduced_data:
-        filename = 'segmentation_comparison_cellpose_reduced.mp4'
+        filename = saving_name + '_reduced.mp4'
     else:
-        filename = 'segmentation_comparison_cellpose.mp4'
+        filename = saving_name + '.mp4'
     mp4_path = os.path.join(script_dir, '..', 'output', filename)
     visualize_segmentation(cellpose_masks, ground_truth_masks,mp4_path)
     print(f"Time to create visualization: {time.time() - t3:.2f} seconds")
     print(f"Total time: {time.time() - t3:.2f} seconds")
     
-def make_cellpose_tracking_movie():
+def make_cellpose_tracking_movie(segmentation_option = 'standard'):
     """
     Create a movie showing the tracking of cellpose masks.
     """
     t0 = time.time()
     print("Creating Cellpose tracking movie...")
     # Load cellpose masks
-    cellpose_mask_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks')
+    if segmentation_option == 'standard':
+        cellpose_mask_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks')
+        saving_name = 'cellpose_tracking.mp4'
+    elif segmentation_option == '3d':
+        cellpose_mask_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks_3d')
+        saving_name = 'cellpose_tracking_3d.mp4'
+    elif segmentation_option == 'stitching':
+        saving_name = 'cellpose_tracking_stitching.mp4'
+        cellpose_mask_dir = os.path.join(script_dir, '..', 'output', 'cellpose_masks_stitching')
+
     cellpose_mask_files = sorted([f for f in os.listdir(cellpose_mask_dir) if f.endswith('.png')])
     cellpose_masks = [cellpose.io.imread(os.path.join(cellpose_mask_dir, f)) for f in cellpose_mask_files]
     print(f"Loaded {len(cellpose_masks)} cellpose masks from {cellpose_mask_dir}")
@@ -116,7 +160,7 @@ def make_cellpose_tracking_movie():
     t3 = time.time()
     print("Creating movie from tracked masks...")
     # Create a movie from the masks
-    output_movie_path = os.path.join(script_dir, '..', 'output', 'cellpose_tracking.mp4')
+    output_movie_path = os.path.join(script_dir, '..', 'output', saving_name)
     imageio.mimsave(output_movie_path, rgb_frames, fps=5)
     print(f"Saved tracking movie to {output_movie_path}")
     print(f"Time to create movie: {time.time() - t3:.2f} seconds")
@@ -295,12 +339,18 @@ def make_cellpose_training_data():
     
     output_movie_path = os.path.join(script_dir, '..', 'output', 'cellpose_new_training_data.mp4')
     imageio.mimsave(output_movie_path, masked_frames, fps=5)
-
+    
 if __name__ == "__main__":
-    # create_cellpose_masks()
-    quantify_cellpose_performance(use_reduced_data= False)
-    quantify_cellpose_performance(use_reduced_data= True)
-    # make_cellpose_tracking_movie()
+    create_cellpose_masks(segmentation_option='standard')
+    create_cellpose_masks(segmentation_option='3d')
+    create_cellpose_masks(segmentation_option='stitching')
+    quantify_cellpose_performance(use_reduced_data= False, segmentation_option='standard')
+    quantify_cellpose_performance(use_reduced_data= True, segmentation_option='standard')
+    quantify_cellpose_performance(use_reduced_data= False, segmentation_option='3d')
+    quantify_cellpose_performance(use_reduced_data= False, segmentation_option='stitching')
+    make_cellpose_tracking_movie(segmentation_option='standard')
+    make_cellpose_tracking_movie(segmentation_option='3d')
+    make_cellpose_tracking_movie(segmentation_option='stitching')
     # make_cellpose_training_data()
     # train_cellpose_sam(use_reduced_masks = False)
     # train_cellpose_sam(use_reduced_masks = True)
