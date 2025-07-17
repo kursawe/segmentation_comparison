@@ -18,7 +18,7 @@ def create_cellpose_masks( segmentation_option = 'standard'):
     '''
     segmeentation option is one of 'standard', '3d', or 'stitching'
     '''
-    # number_frames = 2
+    number_frames = 3
     print(f"Creating Cellpose masks with segmentation option: {segmentation_option}")
  
     t0 = time.time()
@@ -32,7 +32,7 @@ def create_cellpose_masks( segmentation_option = 'standard'):
     # images = [cellpose.io.imread((np.asarray(frame))) for frame in reader]
     images = images[240:1785:4]
     # images = images[240:260:4]
-    # images = images[:number_frames]
+    images = images[:number_frames]
     print(f"Loaded {len(images)} frames from {avi_path}")
     print(f"Time to load images: {time.time() - t0:.2f} seconds")
     print("Processing images with Cellpose...")
@@ -149,7 +149,10 @@ def make_cellpose_tracking_movie(segmentation_option = 'standard'):
     
     print("Tracking cells over time...")
     t1 = time.time()
-    tracked_masks = track_cells_over_time(cellpose_masks)
+    if segmentation_option == 'standard':
+        tracked_masks = track_cells_over_time(cellpose_masks)
+    else:
+        tracked_masks = cellpose_masks
     print(f"Time to track cells: {time.time() - t1:.2f} seconds")
     
     print("Converting tracked masks to RGB frames...")
@@ -343,14 +346,14 @@ def make_cellpose_training_data():
 if __name__ == "__main__":
     # create_cellpose_masks(segmentation_option='standard')
     create_cellpose_masks(segmentation_option='3d')
-    create_cellpose_masks(segmentation_option='stitching')
+    # create_cellpose_masks(segmentation_option='stitching')
     # quantify_cellpose_performance(use_reduced_data= False, segmentation_option='standard')
     # quantify_cellpose_performance(use_reduced_data= True, segmentation_option='standard')
     quantify_cellpose_performance(use_reduced_data= False, segmentation_option='3d')
-    quantify_cellpose_performance(use_reduced_data= False, segmentation_option='stitching')
-    make_cellpose_tracking_movie(segmentation_option='standard')
+    # quantify_cellpose_performance(use_reduced_data= False, segmentation_option='stitching')
+    # make_cellpose_tracking_movie(segmentation_option='standard')
     make_cellpose_tracking_movie(segmentation_option='3d')
-    make_cellpose_tracking_movie(segmentation_option='stitching')
+    # make_cellpose_tracking_movie(segmentation_option='stitching')
     # make_cellpose_training_data()
     # train_cellpose_sam(use_reduced_masks = False)
     # train_cellpose_sam(use_reduced_masks = True)
