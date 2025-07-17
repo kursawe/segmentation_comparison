@@ -4,7 +4,8 @@ scratch:
   resolution: 1024
   train_batch_size: 1
   num_train_workers: 10
-  num_frames: 8
+  # num_train_workers: 1
+  num_frames: 1
   max_num_objects: 3
   base_lr: 5.0e-6
   vision_lr: 3.0e-06
@@ -211,23 +212,24 @@ trainer:
         - ${scratch.train_batch_size}
 
       datasets:
-        - _target_: training.dataset.utils.RepeatFactorWrapper
-          dataset:
-            _target_: training.dataset.utils.ConcatDataset
-            datasets:
-            - _target_: training.dataset.vos_dataset.VOSDataset
-              transforms: ${vos.train_transforms}
-              training: true
-              video_dataset:
-                _target_: training.dataset.vos_raw_dataset.PNGRawDataset
-                img_folder: ${dataset.img_folder}
-                gt_folder: ${dataset.gt_folder}
-                file_list_txt: ${dataset.file_list_txt}
-              sampler:
-                _target_: training.dataset.vos_sampler.RandomUniformSampler
-                num_frames: ${scratch.num_frames}
-                max_num_objects: ${scratch.max_num_objects}
-              multiplier: ${dataset.multiplier}
+      - _target_: training.dataset.utils.RepeatFactorWrapper
+        dataset:
+          _target_: training.dataset.utils.ConcatDataset
+          datasets:
+          - _target_: training.dataset.vos_dataset.VOSDataset
+            training: true
+            video_dataset:
+              _target_: training.dataset.vos_raw_dataset.PNGRawDataset
+              img_folder: ${dataset.img_folder}
+              gt_folder: ${dataset.gt_folder}
+              file_list_txt: ${dataset.file_list_txt}
+            sampler:
+              _target_: training.dataset.vos_sampler.RandomUniformSampler
+              num_frames: ${scratch.num_frames}
+              max_num_objects: ${scratch.max_num_objects}
+            transforms: ${vos.train_transforms}
+            multiplier: ${dataset.multiplier}
+
       shuffle: True
       num_workers: ${scratch.num_train_workers}
       pin_memory: True

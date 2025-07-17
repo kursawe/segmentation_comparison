@@ -7,6 +7,8 @@ from PIL import Image
 import hydra
 from sam2.build_sam import build_sam2_video_predictor
 from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
+from tensorboard.backend.event_processing import event_accumulator
+from matplotlib import pyplot as plt
 
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -64,7 +66,7 @@ def make_folders_for_training_and_testing():
     # Load frames from video
     avi_path = os.path.join(script_dir, '..', 'data', 'movie1_AB060922a_Job3_All_25_fps.avi')
     reader = imageio.get_reader(avi_path)
-    all_frames = [frame for i, frame in enumerate(reader) if i % 4 == 0 and i >= 240 and i <= 1785]
+    all_frames = [frame for i, frame in enumerate(reader) if i % 4 == 0 and i >= 240 and i <= 1783]
     first_frames = all_frames[:320]
     second_frames = all_frames[340:]
     training_frames = first_frames+second_frames
@@ -74,7 +76,7 @@ def make_folders_for_training_and_testing():
     gt_mask_files = sorted([f for f in os.listdir(ground_truth_mask_dir) if f.endswith('.png')])
     all_ground_truth_masks = [imageio.imread(os.path.join(ground_truth_mask_dir, f)) for f in gt_mask_files]
     first_ground_truth_masks = all_ground_truth_masks[:320]  # match number of frames
-    second_ground_truth_masks = all_ground_truth_masks[:320]  # match number of frames
+    second_ground_truth_masks = all_ground_truth_masks[340:]  # match number of frames
     training_masks = first_ground_truth_masks + second_ground_truth_masks
 
     # For each frame, create a folder and save the image and mask inside
@@ -327,13 +329,60 @@ def make_sam2_tracking_movie_prompted():
     print(f"Saved tracking movie to {output_movie_path}")
     print(f"Time to create movie: {time.time() - t3:.2f} seconds")
 
+def plot_tensorboard_losses():
+
+    log_dir = os.path.join(script_dir, '..', '..','sam2','training','sam2_logs','sam2.1_hiera_l+abdomen.yaml','tensorboard')
+    # log_dir = "/tensorboard/"  # your log folder path
+
+    tags_of_interest = [
+    "Step_Losses/Losses/train_all_loss/loss_mask",
+    "Step_Losses/Losses/train_all_loss/loss_dice",
+    "Step_Losses/Losses/train_all_loss/loss_iou",
+    "Step_Losses/Losses/train_all_loss/loss_class",
+    "Step_Losses/Losses/train_all_loss",  # total loss
+    ]
+    
+    scalars = {}  # to collect all scalar metrics
+    
+    # Load each event file
+    for file in os.listdir(log_dir):
+        if file.startswith("events.out"):
+            ea = event_accumulator.EventAccumulator(os.path.join(log_dir, file))
+            ea.Reload()
+            print(ea.Tags())
+    
+            for tag in tags_of_interest:
+                if tag in ea.Tags().get("tensors", []):
+                    tensor_events = ea.Tensors(tag)
+                    steps = [e.step for e in tensor_events]
+                    values = [e.tensor_proto.float_val[0] for e in tensor_events]
+    
+                    if tag not in scalars:
+                        scalars[tag] = {"steps": steps, "values": values}
+                    else:
+                        scalars[tag]["steps"] += steps
+                        scalars[tag]["values"] += values
+    
+    # Plot all found scalar tags
+    for tag, data in scalars.items():
+        plt.plot(data["steps"], data["values"], label=tag.split("/")[-1])
+    
+    plt.xlabel("Step")
+    plt.ylabel("Value")
+    plt.title("TensorBoard Metrics")
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig(os.path.join(script_dir, '..', 'output', 'tensorboard_metrics.pdf'))
+
 
 if __name__ == "__main__":
     # down_sample_video_to_segmented_frames()
-    make_folders_for_training_and_testing()
+    # make_folders_for_training_and_testing()
     # create_sam2_masks_unsupervised()
     # quantify_sam2_performance_unsupervised()
     # make_sam2_tracking_movie_unsupervised()
     # create_sam2_masks_prompted()
     # quantify_sam2_performance_prompted()
     # make_sam2_tracking_movie_prompted()
+    plot_tensorboard_losses()

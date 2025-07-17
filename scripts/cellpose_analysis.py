@@ -18,7 +18,7 @@ def create_cellpose_masks( segmentation_option = 'standard'):
     '''
     segmeentation option is one of 'standard', '3d', or 'stitching'
     '''
-    number_frames = 3
+    number_frames = 20
     print(f"Creating Cellpose masks with segmentation option: {segmentation_option}")
  
     t0 = time.time()
@@ -49,7 +49,7 @@ def create_cellpose_masks( segmentation_option = 'standard'):
         image_3d = np.array(images)
         masks, _, _ = cellpose_model.eval(image_3d, z_axis=0, channel_axis=3,
                                 batch_size=32,
-                                do_3D=True, flow3D_smooth=1)
+                                do_3D=True, flow3D_smooth=8, min_size = 5000)
         for index, mask in enumerate(masks):
             cellpose_masks.append(mask)
             cellpose.io.imsave(os.path.join(output_dir, f"mask_{index:04d}.tif"), mask)
