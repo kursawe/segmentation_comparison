@@ -55,7 +55,7 @@ def make_folders_for_training_and_testing():
     """
     Downsample the video to a sequence of frames for segmentation.
     """
-    output_dir_1 = os.path.join(script_dir, '..', 'output', 'tiffstack_training','0000')
+    output_dir_1 = os.path.join(script_dir, '..', 'output', 'tiffstack_training')
     os.makedirs(output_dir_1, exist_ok=True)
     
     avi_path = os.path.join(script_dir,'..','data','movie1_AB060922a_Job3_All_25_fps.avi')
@@ -69,13 +69,11 @@ def make_folders_for_training_and_testing():
     
     print(f"Saved {len(first_frames)}  training frames to {output_dir_1}")
 
-    output_dir_2 = os.path.join(script_dir, '..', 'output', 'tiffstack_training','0001')
-    os.makedirs(output_dir_2, exist_ok=True)
     second_frames = all_frames[340:]
     
-    for idx, frame in enumerate(second_frames):
+    for idx, frame in enumerate(second_frames, start = 340):
         # frame = frame[300:556, 300:556]  # crop to 256x256
-        imageio.imwrite(os.path.join(output_dir_2, f"{idx:04d}.jpg"), frame, quality=100, subsampling=0)
+        imageio.imwrite(os.path.join(output_dir_1, f"{idx:04d}.jpg"), frame, quality=100, subsampling=0)
  
 
     ground_truth_mask_dir = os.path.join(script_dir, '..', 'data', 'masks')
@@ -83,19 +81,17 @@ def make_folders_for_training_and_testing():
     all_ground_truth_masks = [imageio.imread(os.path.join(ground_truth_mask_dir, f)) for f in gt_mask_files]
     print(f"Loaded {len(all_ground_truth_masks)} ground truth masks from {ground_truth_mask_dir}")
 
-    output_dir_3 = os.path.join(script_dir, '..', 'output', 'masks_training', '00000')
+    output_dir_3 = os.path.join(script_dir, '..', 'output', 'masks_training')
     os.makedirs(output_dir_3, exist_ok=True)
     first_ground_truth_masks = all_ground_truth_masks[:320]  # match number of frames
     for idx, frame in enumerate(first_ground_truth_masks):
         imageio.imwrite(os.path.join(output_dir_3, f"{idx:04d}.png"), frame)
     print(f"saved {len(first_ground_truth_masks)} training masks to {output_dir_3}")
 
-    output_dir_4 = os.path.join(script_dir, '..', 'output', 'masks_training', '00001')
-    os.makedirs(output_dir_4, exist_ok=True)
     second_ground_truth_masks = all_ground_truth_masks[340:]  # match number of frames
-    for idx, frame in enumerate(second_ground_truth_masks):
-        imageio.imwrite(os.path.join(output_dir_4, f"{idx:04d}.png"), frame)
-    print(f"saved {len(second_ground_truth_masks)} training masks to {output_dir_4}")
+    for idx, frame in enumerate(second_ground_truth_masks, start = 340):
+        imageio.imwrite(os.path.join(output_dir_3, f"{idx:04d}.png"), frame)
+    print(f"saved {len(second_ground_truth_masks)} training masks to {output_dir_3}")
  
 def create_sam2_masks_unsupervised():
     # number_frames = 2
@@ -337,11 +333,11 @@ def make_sam2_tracking_movie_prompted():
 
 
 if __name__ == "__main__":
-    down_sample_video_to_segmented_frames()
+    # down_sample_video_to_segmented_frames()
     make_folders_for_training_and_testing()
-    create_sam2_masks_unsupervised()
-    quantify_sam2_performance_unsupervised()
-    make_sam2_tracking_movie_unsupervised()
-    create_sam2_masks_prompted()
-    quantify_sam2_performance_prompted()
-    make_sam2_tracking_movie_prompted()
+    # create_sam2_masks_unsupervised()
+    # quantify_sam2_performance_unsupervised()
+    # make_sam2_tracking_movie_unsupervised()
+    # create_sam2_masks_prompted()
+    # quantify_sam2_performance_prompted()
+    # make_sam2_tracking_movie_prompted()
