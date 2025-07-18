@@ -91,12 +91,17 @@ def make_folders_for_training_and_testing():
     print(f"Saved {len(training_frames)} training image folders to {output_img_root}")
     print(f"Saved {len(training_masks)} training mask folders to {output_mask_root}")
 
-def create_sam2_masks_unsupervised():
+def create_sam2_masks_unsupervised( model = 'standard'):
     # number_frames = 2
-    output_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks')
+    output_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks_' + model)
     os.makedirs(output_dir, exist_ok=True)
  
     t0 = time.time()
+
+    if model == 'standard':
+        sam2_checkpoint = os.path.join(script_dir, '..', 'models', 'sam2.1_hiera_large.pt')
+    else:
+        sam2_checkpoint = os.path.join(script_dir, '..', 'models', 'sam2.1_hiera_l+abdomen.pt')
     predictor = build_sam2_video_predictor('sam2.1_hiera_l.yaml', sam2_checkpoint, device=torch_device)
     # mask_generator = SAM2AutomaticMaskGenerator(predictor, pred_iou_thresh = 0.1)
     mask_generator = SAM2AutomaticMaskGenerator(predictor, stability_score_thresh = 0.3)
@@ -146,10 +151,11 @@ def create_sam2_masks_unsupervised():
     print(f"Segmented all frames.")
     print(f"Time to segment images: {time.time() - t2:.2f} seconds")
 
-def quantify_sam2_performance_unsupervised():
+def quantify_sam2_performance_unsupervised(model = 'standard'):
+    print(f"Quantifying SAM2 performance for model: {model}")
     t0 = time.time()
     # match identified and ground truth masks
-    sam2_mask_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks')
+    sam2_mask_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks_' + model)
     sam2_mask_files = sorted([f for f in os.listdir(sam2_mask_dir) if f.endswith('.png')])
     sam2_masks = [imageio.imread(os.path.join(sam2_mask_dir, f)) for f in sam2_mask_files]
     print(f"Time to load sam2 masks: {time.time() - t0:.2f} seconds")
@@ -177,19 +183,19 @@ def quantify_sam2_performance_unsupervised():
 
     t3 = time.time()
     # Visualization
-    mp4_path = os.path.join(script_dir, '..', 'output', 'segmentation_comparison_sam2.mp4')
+    mp4_path = os.path.join(script_dir, '..', 'output', 'segmentation_comparison_sam2_' + model + '.mp4')
     visualize_segmentation(sam2_masks, ground_truth_masks,mp4_path)
     print(f"Time to create visualization: {time.time() - t3:.2f} seconds")
     print(f"Total time: {time.time() - t3:.2f} seconds")
-    
-def make_sam2_tracking_movie_unsupervised():
+
+def make_sam2_tracking_movie_unsupervised(model = 'standard'):
     """
     Create a movie showing the tracking of sam2 masks.
     """
     t0 = time.time()
-    print("Creating Cellpose tracking movie...")
+    print("Creating Cellpose tracking movie for model " + model + " ...")
     # Load sam2 masks
-    sam2_mask_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks')
+    sam2_mask_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks_' + model)
     sam2_mask_files = sorted([f for f in os.listdir(sam2_mask_dir) if f.endswith('.png')])
     sam2_masks = [imageio.imread(os.path.join(sam2_mask_dir, f)) + 1 for f in sam2_mask_files]
     print(f"Loaded {len(sam2_masks)} sam2 masks from {sam2_mask_dir}")
@@ -203,17 +209,22 @@ def make_sam2_tracking_movie_unsupervised():
     t3 = time.time()
     print("Creating movie from tracked masks...")
     # Create a movie from the masks
-    output_movie_path = os.path.join(script_dir, '..', 'output', 'sam2_tracking.mp4')
+    output_movie_path = os.path.join(script_dir, '..', 'output', 'sam2_tracking_' + model + '.mp4')
     imageio.mimsave(output_movie_path, rgb_frames, fps=5)
     print(f"Saved tracking movie to {output_movie_path}")
     print(f"Time to create movie: {time.time() - t3:.2f} seconds")
 
-def create_sam2_masks_prompted():
+def create_sam2_masks_prompted(model = 'standard'):
     # number_frames = 2
-    output_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks_prompted')
+    output_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks_' + model + '_prompted')
     os.makedirs(output_dir, exist_ok=True)
  
     t0 = time.time()
+    if model == 'standard':
+        sam2_checkpoint = os.path.join(script_dir, '..', 'models', 'sam2.1_hiera_large.pt')
+    else:
+        sam2_checkpoint = os.path.join(script_dir, '..', 'models', 'sam2.1_hiera_l+abdomen.pt')
+
     predictor = build_sam2_video_predictor('sam2.1_hiera_l.yaml', sam2_checkpoint, device=torch_device)
     print(f"Loaded SAM2 model from {sam2_checkpoint} with config {sam2_model_cfg_file}")
     print(f"Time to load SAM2 model: {time.time() - t0:.2f} seconds")
@@ -267,10 +278,11 @@ def create_sam2_masks_prompted():
     print(f"Segmented all frames.")
     print(f"Time to segment images: {time.time() - t2:.2f} seconds")
 
-def quantify_sam2_performance_prompted():
+def quantify_sam2_performance_prompted(model = 'standard'):
+    print(f"Quantifying supervised SAM2 performance for model: {model}")
     t0 = time.time()
     # match identified and ground truth masks
-    sam2_mask_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks_prompted')
+    sam2_mask_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks_' + model + '_prompted')
     sam2_mask_files = sorted([f for f in os.listdir(sam2_mask_dir) if f.endswith('.png')])
     sam2_masks = [imageio.imread(os.path.join(sam2_mask_dir, f)) for f in sam2_mask_files]
     print(f"Time to load sam2 masks: {time.time() - t0:.2f} seconds")
@@ -298,19 +310,19 @@ def quantify_sam2_performance_prompted():
 
     t3 = time.time()
     # Visualization
-    mp4_path = os.path.join(script_dir, '..', 'output', 'segmentation_comparison_sam2_prompted.mp4')
+    mp4_path = os.path.join(script_dir, '..', 'output', 'segmentation_comparison_sam2_' + model + '_prompted.mp4')
     visualize_segmentation(sam2_masks, ground_truth_masks,mp4_path)
     print(f"Time to create visualization: {time.time() - t3:.2f} seconds")
     print(f"Total time: {time.time() - t3:.2f} seconds")
     
-def make_sam2_tracking_movie_prompted():
+def make_sam2_tracking_movie_prompted(model = 'standard'):
     """
     Create a movie showing the tracking of sam2 masks.
     """
     t0 = time.time()
     print("Creating Cellpose tracking movie...")
     # Load sam2 masks
-    sam2_mask_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks_prompted')
+    sam2_mask_dir = os.path.join(script_dir, '..', 'output', 'sam2_masks_' + model + '_prompted')
     sam2_mask_files = sorted([f for f in os.listdir(sam2_mask_dir) if f.endswith('.png')])
     sam2_masks = [imageio.imread(os.path.join(sam2_mask_dir, f)) for f in sam2_mask_files]
     print(f"Loaded {len(sam2_masks)} sam2 masks from {sam2_mask_dir}")
@@ -324,7 +336,7 @@ def make_sam2_tracking_movie_prompted():
     t3 = time.time()
     print("Creating movie from tracked masks...")
     # Create a movie from the masks
-    output_movie_path = os.path.join(script_dir, '..', 'output', 'sam2_tracking_prompted.mp4')
+    output_movie_path = os.path.join(script_dir, '..', 'output', 'sam2_tracking_' + model + '_prompted.mp4')
     imageio.mimsave(output_movie_path, rgb_frames, fps=5)
     print(f"Saved tracking movie to {output_movie_path}")
     print(f"Time to create movie: {time.time() - t3:.2f} seconds")
@@ -386,10 +398,16 @@ def plot_tensorboard_losses():
 if __name__ == "__main__":
     # down_sample_video_to_segmented_frames()
     # make_folders_for_training_and_testing()
-    # create_sam2_masks_unsupervised()
-    # quantify_sam2_performance_unsupervised()
-    # make_sam2_tracking_movie_unsupervised()
-    # create_sam2_masks_prompted()
-    # quantify_sam2_performance_prompted()
-    # make_sam2_tracking_movie_prompted()
-    plot_tensorboard_losses()
+    create_sam2_masks_unsupervised(model = 'standard')
+    create_sam2_masks_unsupervised(model = 'trained')
+    quantify_sam2_performance_unsupervised(model = 'standard')
+    quantify_sam2_performance_unsupervised(model = 'trained')
+    make_sam2_tracking_movie_unsupervised(model = 'standard')
+    make_sam2_tracking_movie_unsupervised(model = 'trained')
+    create_sam2_masks_prompted(model = 'standard')
+    create_sam2_masks_prompted(model = 'trained')
+    quantify_sam2_performance_prompted(model = 'standard')
+    quantify_sam2_performance_prompted(model = 'trained')
+    make_sam2_tracking_movie_prompted(model = 'standard')
+    make_sam2_tracking_movie_prompted(model = 'trained')
+    # plot_tensorboard_losses()
