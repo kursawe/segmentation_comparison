@@ -335,11 +335,12 @@ def plot_tensorboard_losses():
     # log_dir = "/tensorboard/"  # your log folder path
 
     tags_of_interest = [
-    "Step_Losses/Losses/train_all_loss/loss_mask",
-    "Step_Losses/Losses/train_all_loss/loss_dice",
-    "Step_Losses/Losses/train_all_loss/loss_iou",
-    "Step_Losses/Losses/train_all_loss/loss_class",
-    "Step_Losses/Losses/train_all_loss",  # total loss
+        "Losses/train_all_loss",
+         # "Losses/train_all_loss_mask",
+         "Losses/train_all_loss_dice",
+         "Losses/train_all_loss_iou",
+         # "Losses/train_all_loss_class",
+         "Losses/train_all_core_loss"
     ]
     
     scalars = {}  # to collect all scalar metrics
@@ -349,7 +350,6 @@ def plot_tensorboard_losses():
         if file.startswith("events.out"):
             ea = event_accumulator.EventAccumulator(os.path.join(log_dir, file))
             ea.Reload()
-            print(ea.Tags())
     
             for tag in tags_of_interest:
                 if tag in ea.Tags().get("tensors", []):
@@ -363,11 +363,18 @@ def plot_tensorboard_losses():
                         scalars[tag]["steps"] += steps
                         scalars[tag]["values"] += values
     
+#    for tag, data in scalars.items():
+#        combined = sorted(zip(data["steps"], data["values"]))
+#        scalars[tag]["steps"], scalars[tag]["values"] = zip(*combined)
     # Plot all found scalar tags
+
     for tag, data in scalars.items():
-        plt.plot(data["steps"], data["values"], label=tag.split("/")[-1])
+        if "core_loss" in tag:
+            plt.plot(data["steps"], data["values"], label=tag.split("/")[-1], ls = "--")
+        else:
+            plt.plot(data["steps"], data["values"], label=tag.split("/")[-1])
     
-    plt.xlabel("Step")
+    plt.xlabel("Epoch")
     plt.ylabel("Value")
     plt.title("TensorBoard Metrics")
     plt.legend()
