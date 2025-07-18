@@ -111,6 +111,8 @@ def create_sam2_masks_unsupervised( model = 'standard'):
     t1 = time.time()
     tifffolder = os.path.join(script_dir,'..','output','tiffstack_reduced')
     tiff_files = sorted([f for f in os.listdir(tifffolder) if f.lower().endswith('.jpg') or f.lower().endswith('.jpeg')])
+    if model == 'trained':
+        tiff_files = tiff_files[320:340]
     first_tiff_file = tiff_files[0]
     first_image = Image.open(os.path.join(tifffolder, first_tiff_file))
     first_image = np.array(first_image.convert("RGB"))
@@ -171,6 +173,8 @@ def quantify_sam2_performance_unsupervised(model = 'standard'):
         # mask = mask[300:556, 300:556]  # crop to 256x256
         ground_truth_masks_shrunk.append(mask)
     ground_truth_masks = ground_truth_masks_shrunk
+    if model == 'trained':
+        ground_truth_masks = ground_truth_masks[320:340]
     print(f"Loaded {len(ground_truth_masks)} ground truth masks from {ground_truth_mask_dir}")
     print(f"Time to load ground truth masks: {time.time() - t1:.2f} seconds")
  
@@ -232,6 +236,8 @@ def create_sam2_masks_prompted(model = 'standard'):
     t1 = time.time()
     tifffolder = os.path.join(script_dir,'..','output','tiffstack_reduced')
     tiff_files = sorted([f for f in os.listdir(tifffolder) if f.lower().endswith('.jpg') or f.lower().endswith('.jpeg')])
+    if model == 'trained':
+        tiff_files = tiff_files[320:340]
     first_tiff_file = tiff_files[0]
     first_image = Image.open(os.path.join(tifffolder, first_tiff_file))
     first_image = np.array(first_image.convert("RGB"))
@@ -241,6 +247,8 @@ def create_sam2_masks_prompted(model = 'standard'):
     # get ground truth starting point
     ground_truth_mask_dir = os.path.join(script_dir, '..', 'data', 'masks')
     gt_mask_files = sorted([f for f in os.listdir(ground_truth_mask_dir) if f.endswith('.png')])
+    if model == 'trained':
+        gt_mask_files = gt_mask_files[320:340]
     first_gt_mask_file = gt_mask_files[0]
     first_gt_mask = imageio.imread(os.path.join(ground_truth_mask_dir, first_gt_mask_file))
     # first_gt_mask = first_gt_mask[300:556, 300:556]  # crop to 256x256
@@ -292,6 +300,8 @@ def quantify_sam2_performance_prompted(model = 'standard'):
     ground_truth_mask_dir = os.path.join(script_dir, '..', 'data', 'masks')
     gt_mask_files = sorted([f for f in os.listdir(ground_truth_mask_dir) if f.endswith('.png')])
     ground_truth_masks = [imageio.imread(os.path.join(ground_truth_mask_dir, f)) for f in gt_mask_files]
+    if model == 'trained':
+        ground_truth_masks = ground_truth_masks[320:340]
     ground_truth_masks = ground_truth_masks[:len(sam2_masks)]  # match number of frames
     ground_truth_masks_shrunk = []
     for mask in ground_truth_masks:
