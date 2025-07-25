@@ -6,11 +6,12 @@ scratch:
   num_train_workers: 10
   # num_train_workers: 1
   num_frames: 1
-  max_num_objects: 3
-  base_lr: 5.0e-6
-  vision_lr: 3.0e-06
+  max_num_objects: 6
+  base_lr: 1.0e-4
+  vision_lr: 5.0e-05
   phases_per_epoch: 1
-  num_epochs: 40
+  num_epochs: 800
+  output_folder: /sharedscratch/jk263/projects/segmentation_comparison/output/sam2_logs 
 
 dataset:
   # PATHS to Dataset
@@ -197,6 +198,7 @@ trainer:
     rand_init_cond_frames_for_train: True  # random 1~2
     num_correction_pt_per_frame: 7
     use_act_ckpt_iterative_pt_sampling: false
+    freeze_image_encoder: True
     
   
    
@@ -309,7 +311,7 @@ trainer:
       flush_secs: 120
       should_log: True
     log_dir: ${launcher.experiment_log_dir}/logs
-    log_freq: 10
+    log_freq: 1
 
   # initialize from a SAM 2 checkpoint
   checkpoint:
@@ -330,7 +332,7 @@ trainer:
 launcher:
   num_nodes: 1
   gpus_per_node: 8
-  experiment_log_dir: null # Path to log directory, defaults to ./sam2_logs/${config_name}
+  experiment_log_dir: ${scratch.output_folder} # Path to log directory, defaults to ./sam2_logs/${config_name}
 
 # SLURM args if running on a cluster
 submitit:

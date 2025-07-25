@@ -104,7 +104,8 @@ def create_sam2_masks_unsupervised( model = 'standard'):
         sam2_checkpoint = os.path.join(script_dir, '..', 'models', 'sam2.1_hiera_l+abdomen.pt')
     predictor = build_sam2_video_predictor('sam2.1_hiera_l.yaml', sam2_checkpoint, device=torch_device)
     # mask_generator = SAM2AutomaticMaskGenerator(predictor, pred_iou_thresh = 0.1)
-    mask_generator = SAM2AutomaticMaskGenerator(predictor, stability_score_thresh = 0.3)
+    # mask_generator = SAM2AutomaticMaskGenerator(predictor, stability_score_thresh = 0.3)
+    mask_generator = SAM2AutomaticMaskGenerator(predictor)
     print(f"Loaded SAM2 model from {sam2_checkpoint} with config {sam2_model_cfg_file}")
     print(f"Time to load SAM2 model: {time.time() - t0:.2f} seconds")
 
@@ -353,7 +354,7 @@ def make_sam2_tracking_movie_prompted(model = 'standard'):
 
 def plot_tensorboard_losses():
 
-    log_dir = os.path.join(script_dir, '..', '..','sam2','training','sam2_logs','sam2.1_hiera_l+abdomen.yaml','tensorboard')
+    log_dir = os.path.join(script_dir, '..', 'output','sam2_logs','tensorboard')
     # log_dir = "/tensorboard/"  # your log folder path
 
     tags_of_interest = [
@@ -404,20 +405,116 @@ def plot_tensorboard_losses():
     plt.tight_layout()
     plt.savefig(os.path.join(script_dir, '..', 'output', 'tensorboard_metrics.pdf'))
 
+def rewrite_checkpoint_memory_parameters():
+
+    # === File paths ===
+    source_ckpt_path = os.path.join(script_dir, '..', 'models', 'sam2.1_hiera_large.pt') 
+    target_ckpt_path = os.path.join(script_dir, '..', 'models', 'sam2.1_hiera_l+abdomen.pt') 
+    output_ckpt_path = os.path.join(script_dir, '..', 'models', 'sam2.1_hiera_l+abdomen_memory.pt') 
+
+    # === Load checkpoints ===
+    source_ckpt = torch.load(source_ckpt_path, map_location="cpu")
+    target_ckpt = torch.load(target_ckpt_path, map_location="cpu")
+
+    # === Sanity check ===
+    if "model" in source_ckpt:
+        source_state = source_ckpt["model"]
+    else:
+        source_state = source_ckpt
+
+    if "model" in target_ckpt:
+        target_state = target_ckpt["model"]
+    else:
+        target_state = target_ckpt
+
+    # === Inject memory attention weights ===
+    total_diff = 0.0
+    for key in source_state:
+        if "memory" in key and key in target_state:
+            src_param = source_state[key]
+            tgt_param = target_state[key]
+
+            if src_param.shape != tgt_param.shape:
+                print(f"Skipping {key}: shape mismatch {src_param.shape} vs {tgt_param.shape}")
+                continue
+
+            # Move to device if needed (CPU or GPU)
+            src_tensor = src_param.to("cuda") if torch.cuda.is_available() else src_param
+            tgt_tensor = tgt_param.to("cuda") if torch.cuda.is_available() else tgt_param
+
+            diff = torch.nn.functional.mse_loss(src_tensor, tgt_tensor, reduction='sum')  # L2 squared
+            total_diff += diff.item()
+
+            print(f"Injecting {key}, delta_L2²={diff.item():.6f}")
+            target_state[key] = src_param
+
+    # === Save updated checkpoint ===
+    # Optionally wrap in "model" key if needed
+    print(f"Total L2² difference between memory parameters: {total_diff:.6f}")
+    updated_ckpt = {"model": target_state}
+    torch.save(updated_ckpt, output_ckpt_path)
+    print(f"Updated checkpoint saved to {output_ckpt_path}")
+
+def quantify_checkpoint_differences():
+
+    # === File paths ===
+    source_ckpt_path = os.path.join(script_dir, '..', 'models', 'sam2.1_hiera_large.pt') 
+    target_ckpt_path = os.path.join(script_dir, '..', 'models', 'sam2.1_hiera_l+abdomen.pt') 
+
+    # === Load checkpoints ===
+    source_ckpt = torch.load(source_ckpt_path, map_location="cpu")
+    target_ckpt = torch.load(target_ckpt_path, map_location="cpu")
+
+    # === Sanity check ===
+    if "model" in source_ckpt:
+        source_state = source_ckpt["model"]
+    else:
+        source_state = source_ckpt
+
+    if "model" in target_ckpt:
+        target_state = target_ckpt["model"]
+    else:
+        target_state = target_ckpt
+
+    # === Inject memory attention weights ===
+    total_diff = 0.0
+    for key in source_state:
+        if key in target_state:
+            src_param = source_state[key]
+            tgt_param = target_state[key]
+
+            if src_param.shape != tgt_param.shape:
+                print(f"Skipping {key}: shape mismatch {src_param.shape} vs {tgt_param.shape}")
+                continue
+
+            # Move to device if needed (CPU or GPU)
+            src_tensor = src_param.to("cuda") if torch.cuda.is_available() else src_param
+            tgt_tensor = tgt_param.to("cuda") if torch.cuda.is_available() else tgt_param
+
+            diff = torch.nn.functional.mse_loss(src_tensor, tgt_tensor, reduction='sum')  # L2 squared
+            total_diff += diff.item()
+
+            print(f"difference for {key}: delta_L2²={diff.item():.6f}")
+
+    # === Save updated checkpoint ===
+    # Optionally wrap in "model" key if needed
+    print(f"Total L2² difference between memory parameters: {total_diff:.6f}")
 
 if __name__ == "__main__":
     # down_sample_video_to_segmented_frames()
     # make_folders_for_training_and_testing()
-    create_sam2_masks_unsupervised(model = 'standard')
-    create_sam2_masks_unsupervised(model = 'trained')
-    quantify_sam2_performance_unsupervised(model = 'standard')
-    quantify_sam2_performance_unsupervised(model = 'trained')
-    make_sam2_tracking_movie_unsupervised(model = 'standard')
-    make_sam2_tracking_movie_unsupervised(model = 'trained')
-    create_sam2_masks_prompted(model = 'standard')
-    create_sam2_masks_prompted(model = 'trained')
-    quantify_sam2_performance_prompted(model = 'standard')
-    quantify_sam2_performance_prompted(model = 'trained')
-    make_sam2_tracking_movie_prompted(model = 'standard')
-    make_sam2_tracking_movie_prompted(model = 'trained')
+    # create_sam2_masks_unsupervised(model = 'standard')
+        #create_sam2_masks_unsupervised(model = 'trained')
+    # quantify_sam2_performance_unsupervised(model = 'standard')
+        #quantify_sam2_performance_unsupervised(model = 'trained')
+    # make_sam2_tracking_movie_unsupervised(model = 'standard')
+        #make_sam2_tracking_movie_unsupervised(model = 'trained')
+    # create_sam2_masks_prompted(model = 'standard')
+        #create_sam2_masks_prompted(model = 'trained')
+    # quantify_sam2_performance_prompted(model = 'standard')
+        #quantify_sam2_performance_prompted(model = 'trained')
+    # make_sam2_tracking_movie_prompted(model = 'standard')
+    #    make_sam2_tracking_movie_prompted(model = 'trained')
     # plot_tensorboard_losses()
+    # rewrite_checkpoint_memory_parameters()
+    quantify_checkpoint_differences()
